@@ -1,0 +1,506 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<meta name="theme-color" content="#3b82f6">
+<title>追剧追书进度</title>
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="icon.svg" type="image/svg+xml">
+<style>
+  :root{
+    --bg:#f4f6fa; --card:#ffffff; --text:#1f2937; --muted:#6b7280;
+    --primary:#3b82f6; --primary-dark:#2563eb; --danger:#ef4444;
+    --line:#e5e7eb; --chip:#eef2ff; --shadow:0 1px 3px rgba(0,0,0,.08),0 1px 2px rgba(0,0,0,.04);
+  }
+  *{box-sizing:border-box;-webkit-tap-highlight-color:transparent;}
+  html,body{margin:0;padding:0;}
+  body{
+    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI","PingFang SC","Microsoft YaHei",Roboto,Helvetica,Arial,sans-serif;
+    background:var(--bg); color:var(--text); line-height:1.5;
+    -webkit-font-smoothing:antialiased;
+  }
+  .app{max-width:720px;margin:0 auto;padding:env(safe-area-inset-top) 14px calc(90px + env(safe-area-inset-bottom));}
+  header{
+    position:sticky;top:0;z-index:20;background:var(--bg);
+    padding:14px 0 10px;backdrop-filter:saturate(1.2) blur(6px);
+  }
+  .title{font-size:22px;font-weight:700;display:flex;align-items:center;gap:8px;}
+  .title .ic{font-size:24px;}
+  .sub{color:var(--muted);font-size:13px;margin-top:2px;}
+  .toolbar{display:flex;gap:8px;margin-top:12px;align-items:center;}
+  .search{flex:1;position:relative;}
+  .search input{
+    width:100%;padding:10px 12px 10px 34px;border:1px solid var(--line);
+    border-radius:12px;background:var(--card);font-size:15px;color:var(--text);outline:none;
+  }
+  .search .si{position:absolute;left:11px;top:50%;transform:translateY(-50%);color:var(--muted);font-size:15px;}
+  .btn{
+    border:none;border-radius:12px;padding:10px 14px;font-size:15px;font-weight:600;
+    cursor:pointer;background:var(--primary);color:#fff;transition:filter .15s;white-space:nowrap;
+  }
+  .btn:active{filter:brightness(.92);}
+  .btn.ghost{background:var(--card);color:var(--text);border:1px solid var(--line);}
+  .chips{display:flex;gap:8px;margin-top:10px;overflow-x:auto;padding-bottom:2px;-webkit-overflow-scrolling:touch;}
+  .chip{
+    flex:0 0 auto;padding:7px 13px;border-radius:999px;background:var(--card);
+    border:1px solid var(--line);font-size:13px;color:var(--muted);cursor:pointer;
+  }
+  .chip.active{background:var(--primary);color:#fff;border-color:var(--primary);}
+  .list{margin-top:14px;display:flex;flex-direction:column;gap:12px;}
+  .card{
+    background:var(--card);border-radius:16px;padding:14px;box-shadow:var(--shadow);
+    border:1px solid var(--line);
+  }
+  .card .top{display:flex;justify-content:space-between;align-items:flex-start;gap:10px;}
+  .card h3{margin:0;font-size:17px;font-weight:700;word-break:break-word;}
+  .badge{font-size:12px;padding:3px 9px;border-radius:999px;background:var(--chip);color:var(--primary-dark);font-weight:600;white-space:nowrap;}
+  .progress{font-size:15px;font-weight:600;margin-top:8px;color:var(--text);}
+  .note{font-size:13px;color:var(--muted);margin-top:6px;white-space:pre-wrap;word-break:break-word;}
+  .meta{font-size:12px;color:var(--muted);margin-top:8px;}
+  .actions{display:flex;gap:8px;margin-top:12px;flex-wrap:wrap;}
+  .mini{
+    border:1px solid var(--line);background:#fff;border-radius:10px;padding:7px 11px;
+    font-size:13px;font-weight:600;cursor:pointer;color:var(--text);
+  }
+  .mini.plus{background:var(--primary);color:#fff;border-color:var(--primary);}
+  .mini:active{filter:brightness(.95);}
+  .mini.danger{color:var(--danger);border-color:#fecaca;}
+  .empty{text-align:center;color:var(--muted);padding:60px 20px;font-size:15px;}
+  .empty .big{font-size:46px;margin-bottom:10px;}
+  /* floating add */
+  .fab{
+    position:fixed;right:18px;bottom:calc(18px + env(safe-area-inset-bottom));z-index:30;
+    width:58px;height:58px;border-radius:50%;background:var(--primary);color:#fff;
+    border:none;font-size:30px;box-shadow:0 6px 16px rgba(59,130,246,.45);cursor:pointer;
+    display:flex;align-items:center;justify-content:center;
+  }
+  .fab:active{filter:brightness(.92);}
+  /* modal */
+  .mask{position:fixed;inset:0;background:rgba(15,23,42,.45);z-index:40;display:none;align-items:flex-end;justify-content:center;}
+  .mask.show{display:flex;}
+  .sheet{
+    background:var(--card);width:100%;max-width:720px;border-radius:20px 20px 0 0;
+    padding:20px 18px calc(24px + env(safe-area-inset-bottom));max-height:90vh;overflow:auto;
+    animation:up .2s ease;
+  }
+  @keyframes up{from{transform:translateY(20px);opacity:.6}to{transform:translateY(0);opacity:1}}
+  .sheet h2{margin:0 0 16px;font-size:19px;}
+  .field{margin-bottom:14px;}
+  .field label{display:block;font-size:13px;color:var(--muted);margin-bottom:6px;}
+  .field input,.field select,.field textarea{
+    width:100%;padding:11px 12px;border:1px solid var(--line);border-radius:12px;
+    font-size:15px;background:#fff;color:var(--text);outline:none;font-family:inherit;
+  }
+  .field textarea{resize:vertical;min-height:60px;}
+  .row{display:flex;gap:10px;}
+  .row .field{flex:1;}
+  .seg{display:flex;gap:8px;}
+  .seg button{
+    flex:1;padding:10px;border:1px solid var(--line);background:#fff;border-radius:12px;
+    font-size:14px;cursor:pointer;color:var(--muted);font-weight:600;
+  }
+  .seg button.active{background:var(--primary);color:#fff;border-color:var(--primary);}
+  .sheet .foot{display:flex;gap:10px;margin-top:6px;}
+  .sheet .foot .btn{flex:1;}
+  .btn.cancel{background:#f3f4f6;color:var(--text);}
+  /* toast */
+  .toast{
+    position:fixed;left:50%;bottom:90px;transform:translateX(-50%);background:#111827;color:#fff;
+    padding:10px 16px;border-radius:10px;font-size:14px;z-index:60;opacity:0;transition:opacity .2s;pointer-events:none;
+  }
+  .toast.show{opacity:.95;}
+  .footer{text-align:center;color:var(--muted);font-size:12px;padding:18px 0 4px;}
+  .footer a{color:var(--primary-dark);}
+</style>
+</head>
+<body>
+<div class="app">
+  <header>
+    <div class="title"><span class="ic">📌</span>追剧追书进度</div>
+    <div class="sub">记下看到哪了，下次接着来</div>
+    <div class="toolbar">
+      <div class="search">
+        <span class="si">🔍</span>
+        <input id="search" type="search" placeholder="搜索作品名…" autocomplete="off">
+      </div>
+      <button class="btn ghost" id="exportBtn" title="导出备份">↗</button>
+      <button class="btn ghost" id="importBtn" title="导入备份">↙</button>
+      <input type="file" id="importFile" accept="application/json" hidden>
+    </div>
+    <div class="chips" id="chips"></div>
+  </header>
+
+  <div class="list" id="list"></div>
+  <div class="footer">数据仅保存在本设备浏览器中 · 建议定期导出备份</div>
+</div>
+
+<button class="fab" id="addBtn" title="添加">＋</button>
+
+<div class="mask" id="mask">
+  <div class="sheet" id="sheet">
+    <h2 id="sheetTitle">添加作品</h2>
+    <div class="field">
+      <label>作品网址（选填，可自动识别名字与进度）</label>
+      <div class="row">
+        <input id="fUrl" type="url" placeholder="粘贴小说/剧集播放页链接" style="flex:1" autocomplete="off">
+        <button class="mini" id="recognizeBtn" type="button">识别</button>
+      </div>
+      <div class="meta" id="recStatus"></div>
+    </div>
+    <div class="field">
+      <label>类型</label>
+      <div class="seg" id="typeSeg"></div>
+    </div>
+    <div class="field">
+      <label>作品名</label>
+      <input id="fTitle" type="text" placeholder="例如：庆余年 / 权力的游戏" maxlength="80">
+    </div>
+    <div id="progressFields"></div>
+    <div class="field">
+      <label>看到哪了（备注，可选）</label>
+      <textarea id="fNote" placeholder="例如：男主救了女主那集 / 第3章结尾"></textarea>
+    </div>
+    <div class="foot">
+      <button class="btn cancel" id="cancelBtn">取消</button>
+      <button class="btn" id="saveBtn">保存</button>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+(function(){
+  "use strict";
+  const STORE_KEY = "progress-tracker-items-v1";
+
+  // 类型配置：每种类型对应的进度字段
+  const CATEGORIES = {
+    novel: { label:"小说", icon:"📖", fields:[
+      {key:"volume", label:"卷", optional:true, ph:"选填"},
+      {key:"chapter", label:"章", ph:"当前章数"}
+    ]},
+    show:  { label:"剧集", icon:"🎬", fields:[
+      {key:"season", label:"季", ph:"第几季"},
+      {key:"episode", label:"集", ph:"当前集数"}
+    ]},
+    anime: { label:"动漫", icon:"🍥", fields:[
+      {key:"season", label:"季", optional:true, ph:"选填"},
+      {key:"episode", label:"集", ph:"当前集数"}
+    ]},
+    other: { label:"其他", icon:"📦", fields:[
+      {key:"progress", label:"进度", ph:"例如第几页 / 第几关"}
+    ]}
+  };
+  const CAT_KEYS = Object.keys(CATEGORIES);
+
+  let items = load();
+  let filterCat = "all";
+  let keyword = "";
+  let editingId = null;
+  let formCat = "novel";
+
+  // ---------- 存储 ----------
+  function load(){
+    try{ return JSON.parse(localStorage.getItem(STORE_KEY)) || []; }
+    catch(e){ return []; }
+  }
+  function save(){
+    localStorage.setItem(STORE_KEY, JSON.stringify(items));
+  }
+  function uid(){ return Date.now().toString(36) + Math.random().toString(36).slice(2,7); }
+
+  // ---------- 工具 ----------
+  function esc(s){ return (s||"").replace(/[&<>"']/g, c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c])); }
+  function relTime(ts){
+    const d = Date.now() - ts, m=60000,h=3600000,day=86400000;
+    if(d < m) return "刚刚";
+    if(d < h) return Math.floor(d/m)+" 分钟前";
+    if(d < day) return Math.floor(d/h)+" 小时前";
+    if(d < 30*day) return Math.floor(d/day)+" 天前";
+    const dt=new Date(ts); return dt.getFullYear()+"-"+(dt.getMonth()+1).toString().padStart(2,"0")+"-"+dt.getDate().toString().padStart(2,"0");
+  }
+  function progressText(it){
+    const cfg = CATEGORIES[it.cat] || CATEGORIES.other;
+    const parts = cfg.fields.map(f=>{
+      const v = it[f.key];
+      if(v===undefined||v===""||v===null) return null;
+      return f.label + v;
+    }).filter(Boolean);
+    return parts.length ? parts.join(" · ") : "未记录进度";
+  }
+  function toast(msg){
+    const t=document.getElementById("toast"); t.textContent=msg; t.classList.add("show");
+    clearTimeout(t._t); t._t=setTimeout(()=>t.classList.remove("show"),1600);
+  }
+
+  // ---------- 渲染 ----------
+  function renderChips(){
+    const wrap=document.getElementById("chips");
+    const all=[{k:"all",label:"全部"},...CAT_KEYS.map(k=>({k,label:CATEGORIES[k].label}))];
+    wrap.innerHTML = all.map(c=>
+      `<div class="chip ${filterCat===c.k?'active':''}" data-cat="${c.k}">${esc(c.label)}</div>`).join("");
+    wrap.querySelectorAll(".chip").forEach(ch=>ch.onclick=()=>{
+      filterCat=ch.dataset.cat; renderChips(); renderList();
+    });
+  }
+
+  function renderList(){
+    const list=document.getElementById("list");
+    let arr = items.slice().sort((a,b)=>b.updatedAt-a.updatedAt);
+    if(filterCat!=="all") arr=arr.filter(i=>i.cat===filterCat);
+    if(keyword){ const k=keyword.toLowerCase(); arr=arr.filter(i=>i.title.toLowerCase().includes(k)); }
+    if(!arr.length){
+      list.innerHTML = `<div class="empty"><div class="big">📭</div>${keyword?"没有匹配的作品":"还没有记录，点右下角 ＋ 添加吧"}</div>`;
+      return;
+    }
+    list.innerHTML = arr.map(it=>{
+      const cfg=CATEGORIES[it.cat]||CATEGORIES.other;
+      const lastField = cfg.fields[cfg.fields.length-1];
+      const plusLabel = lastField.key==="chapter"?"+1 章":lastField.key==="episode"?"+1 集":lastField.key==="volume"?"+1 卷":"+1";
+      return `<div class="card" data-id="${it.id}">
+        <div class="top">
+          <h3>${esc(it.title)}</h3>
+          <span class="badge">${cfg.icon} ${cfg.label}</span>
+        </div>
+        <div class="progress">${esc(progressText(it))}</div>
+        ${it.note?`<div class="note">${esc(it.note)}</div>`:""}
+        <div class="meta">更新于 ${relTime(it.updatedAt)}</div>
+        <div class="actions">
+          <button class="mini plus" data-act="plus">${plusLabel}</button>
+          <button class="mini" data-act="edit">编辑</button>
+          <button class="mini danger" data-act="del">删除</button>
+        </div>
+      </div>`;
+    }).join("");
+    list.querySelectorAll(".card").forEach(card=>{
+      const id=card.dataset.id;
+      card.querySelector('[data-act="plus"]').onclick=()=>quickPlus(id);
+      card.querySelector('[data-act="edit"]').onclick=()=>openSheet(id);
+      card.querySelector('[data-act="del"]').onclick=()=>delItem(id);
+    });
+  }
+
+  function quickPlus(id){
+    const it=items.find(i=>i.id===id); if(!it) return;
+    const cfg=CATEGORIES[it.cat]||CATEGORIES.other;
+    const f=cfg.fields[cfg.fields.length-1];
+    it[f.key] = (parseInt(it[f.key],10)||0)+1;
+    it.updatedAt=Date.now(); save(); renderList(); toast("已 +1");
+  }
+
+  function delItem(id){
+    const it=items.find(i=>i.id===id); if(!it) return;
+    if(!confirm(`确定删除《${it.title}》？`)) return;
+    items=items.filter(i=>i.id!==id); save(); renderList();
+  }
+
+  // ---------- 表单 ----------
+  function renderTypeSeg(){
+    document.getElementById("typeSeg").innerHTML = CAT_KEYS.map(k=>
+      `<button data-cat="${k}" class="${formCat===k?'active':''}">${CATEGORIES[k].icon} ${CATEGORIES[k].label}</button>`).join("");
+    document.querySelectorAll("#typeSeg button").forEach(b=>b.onclick=()=>{
+      formCat=b.dataset.cat; renderTypeSeg(); renderProgressFields();
+    });
+  }
+  function renderProgressFields(){
+    const cfg=CATEGORIES[formCat];
+    document.getElementById("progressFields").innerHTML = cfg.fields.map(f=>
+      `<div class="field"><label>${f.label}${f.optional?"（选填）":""}</label>
+       <input type="number" min="0" inputmode="numeric" data-k="${f.key}" placeholder="${f.ph||""}"></div>`
+    ).join("");
+  }
+
+  function openSheet(id){
+    editingId = id || null;
+    document.getElementById("sheetTitle").textContent = id?"编辑作品":"添加作品";
+    if(id){
+      const it=items.find(i=>i.id===id);
+      formCat=it.cat;
+      document.getElementById("fTitle").value=it.title;
+      document.getElementById("fNote").value=it.note||"";
+      renderTypeSeg(); renderProgressFields();
+      const cfg=CATEGORIES[formCat];
+      cfg.fields.forEach(f=>{
+        const el=document.querySelector(`#progressFields [data-k="${f.key}"]`);
+        if(el) el.value = it[f.key]!==undefined?it[f.key]:"";
+      });
+    }else{
+      formCat="novel";
+      document.getElementById("fTitle").value="";
+      document.getElementById("fNote").value="";
+      renderTypeSeg(); renderProgressFields();
+    }
+    document.getElementById("mask").classList.add("show");
+    setTimeout(()=>document.getElementById("fTitle").focus(),50);
+  }
+  function closeSheet(){ document.getElementById("mask").classList.remove("show"); editingId=null; }
+
+  function saveForm(){
+    const title=document.getElementById("fTitle").value.trim();
+    if(!title){ toast("请填写作品名"); return; }
+    const cfg=CATEGORIES[formCat];
+    const data={};
+    cfg.fields.forEach(f=>{
+      const el=document.querySelector(`#progressFields [data-k="${f.key}"]`);
+      const v=el?el.value.trim():"";
+      if(v!=="") data[f.key]=parseInt(v,10);
+    });
+    const note=document.getElementById("fNote").value.trim();
+    if(editingId){
+      const it=items.find(i=>i.id===editingId);
+      it.title=title; it.cat=formCat; it.note=note; it.updatedAt=Date.now();
+      Object.keys(data).forEach(k=>it[k]=data[k]);
+      // 清理其他类型遗留字段
+      CAT_KEYS.forEach(k=>{ if(k!==formCat) (CATEGORIES[k].fields.map(f=>f.key)).forEach(fk=>delete it[fk]); });
+    }else{
+      items.push(Object.assign({id:uid(),title,cat:formCat,note,updatedAt:Date.now()},data));
+    }
+    save(); closeSheet(); renderList();
+  }
+
+  // ---------- 导入导出 ----------
+  function exportData(){
+    if(!items.length){ toast("暂无数据可导出"); return; }
+    const blob=new Blob([JSON.stringify(items,null,2)],{type:"application/json"});
+    const url=URL.createObjectURL(blob);
+    const a=document.createElement("a");
+    const name="进度备份-"+new Date().toISOString().slice(0,10)+".json";
+    a.href=url; a.download=name; a.click();
+    URL.revokeObjectURL(url); toast("已导出备份");
+  }
+  function importData(file){
+    const r=new FileReader();
+    r.onload=()=>{
+      try{
+        const data=JSON.parse(r.result);
+        if(!Array.isArray(data)) throw 0;
+        data.forEach(d=>{ if(!d.id) d.id=uid(); if(!d.updatedAt) d.updatedAt=Date.now(); });
+        if(confirm(`将导入 ${data.length} 条记录，是否覆盖当前数据？\n（取消则合并）`)){
+          items=data;
+        }else{
+          const ids=new Set(items.map(i=>i.id));
+          data.forEach(d=>{ if(!ids.has(d.id)) items.push(d); });
+        }
+        save(); renderList(); toast("导入完成");
+      }catch(e){ toast("文件格式不正确"); }
+    };
+    r.readAsText(file);
+  }
+
+  // ---------- 网址识别 ----------
+  const PROXIES = [
+    u => "https://api.allorigins.win/raw?url=" + encodeURIComponent(u),
+    u => "https://api.allorigins.win/get?url=" + encodeURIComponent(u),
+    u => "https://api.codetabs.com/v1/proxy/?quest=" + encodeURIComponent(u),
+    u => "https://cors.bridged.cc/" + u,
+    u => "https://api.websiteproxy.io/index.php?url=" + encodeURIComponent(u)
+  ];
+  async function fetchViaProxy(url){
+    let lastErr;
+    for(const make of PROXIES){
+      try{
+        const r = await fetch(make(url), {signal:AbortSignal.timeout ? AbortSignal.timeout(13000) : undefined});
+        if(!r.ok) continue;
+        let txt = await r.text();
+        if(make.toString().indexOf("allorigins.win/get")>-1){
+          try{ txt = JSON.parse(txt).contents || txt; }catch(e){}
+        }
+        if(txt && txt.length>200) return txt;
+      }catch(e){ lastErr=e; }
+    }
+    throw lastErr || new Error("所有代理均失败");
+  }
+  function extractTitle(html){
+    const m = html.match(/<title[^>]*>([\s\S]*?)<\/title>/i);
+    if(m) return m[1].replace(/\s+/g," ").trim();
+    const og = html.match(/<meta[^>]+property=["']og:title["'][^>]+content=["']([^"']+)["']/i)
+            || html.match(/<meta[^>]+content=["']([^"']+)["'][^>]+property=["']og:title["']/i);
+    if(og) return og[1].trim();
+    return "";
+  }
+  const CN = {"零":0,"一":1,"二":2,"两":2,"三":3,"四":4,"五":5,"六":6,"七":7,"八":8,"九":9};
+  function cnNum(s){
+    if(/^\d+$/.test(s)) return parseInt(s,10);
+    if(s==="十") return 10;
+    if(s && s.indexOf("十")>-1){
+      const p=s.split("十"); const tens=p[0]===""?1:(CN[p[0]]||0); const ones=p[1]===""?0:(CN[p[1]]||0);
+      return tens*10+ones;
+    }
+    return CN[s]!==undefined?CN[s]:NaN;
+  }
+  const SITE_SUFFIX = ["爱奇艺","腾讯视频","优酷","芒果tv","芒果TV","哔哩哔哩","bilibili","起点中文网","起点","番茄小说","番茄","晋江文学城","刺猬猫","腾讯","爱奇艺视频","优酷视频"];
+  const GENERIC = ["在线观看","高清","免费观看","全集","剧情","介绍","电视剧","动漫","电影","综艺","正片","视频","播放","观看","官网","全集在线"];
+  function cleanupName(text, progressSub){
+    let name = text || "";
+    if(progressSub) name = name.replace(progressSub,"");
+    // 剥掉所有进度令牌
+    name = name.replace(/第\s*[0-9零一二两三四五六七八九十]+\s*[集季章节回话卷]/g,"");
+    name = name.replace(/S\s*[0-9]+\s*E\s*[0-9]+/gi,"");
+    name = name.replace(/\bEP\s*[0-9]+/gi,"");
+    // 去掉站点名与通用词（整段或子串）
+    let segs = name.split(/\s*[-–—|_\/]\s*/).map(s=>s.trim()).filter(Boolean);
+    segs = segs.filter(seg=> !SITE_SUFFIX.includes(seg.toLowerCase()) && !GENERIC.includes(seg));
+    name = (segs[0]||text||"");
+    for(const s of SITE_SUFFIX){ name = name.split(s).join(""); }
+    for(const g of GENERIC){ name = name.split(g).join(""); }
+    return name.replace(/\s+/g," ").trim();
+  }
+  function detectProgress(text){
+    let res = {cat:null, name:null, volume:null, chapter:null, season:null, episode:null};
+    let m, hit=null;
+    if((m=text.match(/第\s*([0-9零一二两三四五六七八九十]+)\s*季\s*第\s*([0-9零一二两三四五六七八九十]+)\s*集/))){ res.cat="show"; res.season=cnNum(m[1]); res.episode=cnNum(m[2]); hit=m[0]; }
+    else if((m=text.match(/S\s*([0-9]+)\s*E\s*([0-9]+)/i))){ res.cat="show"; res.season=parseInt(m[1],10); res.episode=parseInt(m[2],10); hit=m[0]; }
+    else if((m=text.match(/第\s*([0-9零一二两三四五六七八九十]+)\s*集/))){ res.cat="show"; res.episode=cnNum(m[1]); hit=m[0]; }
+    else if((m=text.match(/\bEP\s*([0-9]+)/i))){ res.cat="show"; res.episode=parseInt(m[1],10); hit=m[0]; }
+    else if((m=text.match(/第\s*([0-9零一二两三四五六七八九十]+)\s*季/))){ res.cat="show"; res.season=cnNum(m[1]); hit=m[0]; }
+    if(res.cat==="show"){ res.name=cleanupName(text,hit); return res; }
+    if((m=text.match(/第\s*([0-9零一二两三四五六七八九十]+)\s*卷/))){ res.cat="novel"; res.volume=cnNum(m[1]); }
+    if((m=text.match(/第\s*([0-9零一二两三四五六七八九十]+)\s*[章回话]/))){ if(!res.cat) res.cat="novel"; res.chapter=cnNum(m[1]); hit=m[0]; }
+    else if(res.cat==="novel"){ hit=null; }
+    if(res.cat==="novel"){ res.name=cleanupName(text,hit); return res; }
+    return null;
+  }
+  async function recognize(){
+    const url = document.getElementById("fUrl").value.trim();
+    const status = document.getElementById("recStatus");
+    if(!url){ toast("请先粘贴网址"); return; }
+    status.textContent = "识别中…";
+    try{
+      const html = await fetchViaProxy(url);
+      const title = extractTitle(html);
+      if(!title){ status.textContent = "未能从页面提取标题，请手动填写"; return; }
+      const r = detectProgress(title);
+      if(!r){
+        document.getElementById("fTitle").value = title;
+        status.textContent = "已提取标题：" + title + "（未识别到进度，请手动选类型并填写）";
+        return;
+      }
+      formCat = r.cat; renderTypeSeg(); renderProgressFields();
+      document.getElementById("fTitle").value = r.name || title;
+      const cfg = CATEGORIES[formCat];
+      cfg.fields.forEach(f=>{ const el=document.querySelector('#progressFields [data-k="'+f.key+'"]'); if(el && r[f.key]!=null && !isNaN(r[f.key])) el.value=r[f.key]; });
+      status.textContent = "已识别：" + (r.name||title) + " · " + progressText({cat:formCat, volume:r.volume, chapter:r.chapter, season:r.season, episode:r.episode});
+    }catch(e){
+      status.textContent = "识别失败（代理可能不稳定），可重试或手动填写";
+    }
+  }
+
+  // ---------- 绑定 ----------
+  document.getElementById("addBtn").onclick=()=>openSheet();
+  document.getElementById("recognizeBtn").onclick=recognize;
+  document.getElementById("cancelBtn").onclick=closeSheet;
+  document.getElementById("saveBtn").onclick=saveForm;
+  document.getElementById("mask").onclick=(e)=>{ if(e.target.id==="mask") closeSheet(); };
+  document.getElementById("search").oninput=(e)=>{ keyword=e.target.value.trim(); renderList(); };
+  document.getElementById("exportBtn").onclick=exportData;
+  document.getElementById("importBtn").onclick=()=>document.getElementById("importFile").click();
+  document.getElementById("importFile").onchange=(e)=>{ if(e.target.files[0]) importData(e.target.files[0]); e.target.value=""; };
+
+  // ---------- 启动 ----------
+  renderChips(); renderList();
+})();
+</script>
+</body>
+</html>
