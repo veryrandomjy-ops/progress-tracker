@@ -148,6 +148,11 @@
       </div>
       <div class="meta" id="recStatus"></div>
     </div>
+    <div class="field" style="margin-top:10px">
+      <label>或粘贴页面文字（适用于拦截抓取的站，如手机端聚合站）</label>
+      <textarea id="fPaste" placeholder="在手机上长按章节标题复制，粘贴到这里，例如：第一千二百章 风起云涌"></textarea>
+      <button class="mini" id="pasteBtn" type="button" style="margin-top:6px">从文字识别</button>
+    </div>
     <div class="field">
       <label>类型</label>
       <div class="seg" id="typeSeg"></div>
@@ -528,7 +533,14 @@
     else if((m=primary.match(/\bEP\s*([0-9]+)/i))){ res.cat="show"; res.episode=+m[1]; }
     else if((m=primary.match(/第\s*([0-9零一二两三四五六七八九十]+)\s*季/))){ res.cat="show"; res.season=cnNum(m[1]); }
     if(res.cat==="show"){
-      res.name = cleanupName(sig.title) || sig.title;
+      const whole = sig.title || sig.ogTitle || "";
+      let name = cleanupName(whole) || whole;
+      const tok = whole.match(/第\s*[0-9零一二两三四五六七八九十]+\s*季\s*第\s*[0-9零一二两三四五六七八九十]+\s*集|第\s*[0-9零一二两三四五六七八九十]+\s*集|S\s*[0-9]+\s*E\s*[0-9]+|EP\s*[0-9]+/i);
+      if(tok && tok.index!==undefined){
+        const before = whole.slice(0, tok.index).replace(/[\s\-–—|_]+/g,"").trim();
+        if(before==="") name = "";
+      }
+      res.name = name || null;
       return res;
     }
     const nov = parseNovel(primary);
@@ -542,6 +554,25 @@
     if(sig.title){ res.name = cleanupName(sig.title) || sig.title; }
     return res.name ? res : null;
   }
+  function applyAnalysis(r, fallbackText){
+    const status = document.getElementById("recStatus");
+    if(!r || !r.cat){
+      document.getElementById("fTitle").value = fallbackText || "";
+      status.textContent = "已提取文字，但未识别到进度，请手动选类型并填写";
+      return false;
+    }
+    formCat = r.cat; renderTypeSeg(); renderProgressFields();
+    document.getElementById("fTitle").value = r.name || fallbackText || "";
+    const cfg = CATEGORIES[formCat];
+    cfg.fields.forEach(f=>{
+      const el=document.querySelector('#progressFields [data-k="'+f.key+'"]');
+      if(el && r[f.key]!=null && (f.type==="text" ? true : !isNaN(r[f.key]))) el.value=r[f.key];
+    });
+    let msg = "已识别：" + (r.name||"") + " · " + progressText({cat:formCat, volume:r.volume, chapter:r.chapter, season:r.season, episode:r.episode});
+    if(r.chapterName) msg += " · 章节：" + r.chapterName;
+    status.textContent = msg;
+    return true;
+  }
   async function recognize(){
     const url = document.getElementById("fUrl").value.trim();
     const status = document.getElementById("recStatus");
@@ -550,32 +581,29 @@
     try{
       const html = await fetchViaProxy(url);
       const sig = extractSignals(html);
-      if(!sig.title && !sig.h1 && !sig.ogTitle){ status.textContent = "未能从页面提取信息，请手动填写"; return; }
-      const r = analyze(sig);
-      if(!r || !r.cat){
-        const guess = sig.title || sig.ogTitle || sig.h1 || "";
-        document.getElementById("fTitle").value = cleanupName(guess) || guess;
-        status.textContent = "已提取标题，但未识别到进度，请手动选类型并填写";
+      if(!sig.title && !sig.h1 && !sig.ogTitle){
+        status.textContent = "未能从页面提取信息（网站可能拦截了抓取），改用下方「粘贴页面文字」";
         return;
       }
-      formCat = r.cat; renderTypeSeg(); renderProgressFields();
-      document.getElementById("fTitle").value = r.name || (sig.title||sig.ogTitle);
-      const cfg = CATEGORIES[formCat];
-      cfg.fields.forEach(f=>{
-        const el=document.querySelector('#progressFields [data-k="'+f.key+'"]');
-        if(el && r[f.key]!=null && (f.type==="text" ? true : !isNaN(r[f.key]))) el.value=r[f.key];
-      });
-      let msg = "已识别：" + (r.name||"") + " · " + progressText({cat:formCat, volume:r.volume, chapter:r.chapter, season:r.season, episode:r.episode});
-      if(r.chapterName) msg += " · 章节：" + r.chapterName;
-      status.textContent = msg;
+      const r = analyze(sig);
+      if(!applyAnalysis(r, sig.title||sig.ogTitle||sig.h1)) return;
     }catch(e){
-      status.textContent = "识别失败（代理或网站拦截），可重试或手动填写";
+      status.textContent = "识别失败（代理或网站拦截），改用下方「粘贴页面文字」即可";
     }
+  }
+  function recognizeText(){
+    const txt = document.getElementById("fPaste").value.trim();
+    const status = document.getElementById("recStatus");
+    if(!txt){ toast("请先粘贴页面文字"); return; }
+    const sig = {title:txt, h1:txt, ogTitle:"", metaBook:"", metaKeywords:""};
+    const r = analyze(sig);
+    applyAnalysis(r, txt);
   }
 
   // ---------- 绑定 ----------
   document.getElementById("addBtn").onclick=()=>openSheet();
   document.getElementById("recognizeBtn").onclick=recognize;
+  document.getElementById("pasteBtn").onclick=recognizeText;
   document.getElementById("cancelBtn").onclick=closeSheet;
   document.getElementById("saveBtn").onclick=saveForm;
   document.getElementById("mask").onclick=(e)=>{ if(e.target.id==="mask") closeSheet(); };
