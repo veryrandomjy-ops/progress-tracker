@@ -153,6 +153,12 @@
       <textarea id="fPaste" placeholder="在手机上长按章节标题复制，粘贴到这里，例如：第一千二百章 风起云涌"></textarea>
       <button class="mini" id="pasteBtn" type="button" style="margin-top:6px">从文字识别</button>
     </div>
+    <details class="help">
+      <summary>📌 一键抓取书签（推荐，可绕过网站拦截）</summary>
+      <p>在浏览器里新建一个书签，把它的“网址”整段替换成下面这段代码；之后在小说/剧集章节页点这个书签，会自动把书名+章节导入本应用（靠你自己的浏览器读取页面，不受网站拦截影响）。</p>
+      <textarea readonly id="bmCode" rows="3" style="width:100%;font-size:11px;word-break:break-all"></textarea>
+      <p style="color:#888;font-size:12px">手机端：先收藏当前页生成书签，再编辑该书签，把网址改成上面整段代码（以 <code>javascript:</code> 开头）。</p>
+    </details>
     <div class="field">
       <label>类型</label>
       <div class="seg" id="typeSeg"></div>
@@ -612,8 +618,31 @@
   document.getElementById("importBtn").onclick=()=>document.getElementById("importFile").click();
   document.getElementById("importFile").onchange=(e)=>{ if(e.target.files[0]) importData(e.target.files[0]); e.target.value=""; };
 
+  // ---------- 从书签导入（正常浏览器页面内抓取，绕过网站拦截）----------
+  function handleImport(){
+    try{
+      const q = new URLSearchParams(location.search).get("import");
+      if(!q) return;
+      const d = JSON.parse(decodeURIComponent(q));
+      openSheet();
+      if(d.url) document.getElementById("fUrl").value = d.url;
+      const txt = (d.h1 && d.h1.trim() ? d.h1.trim() + "\n" + (d.title||"") : (d.title||"")).trim();
+      document.getElementById("fPaste").value = txt;
+      recognizeText();
+      history.replaceState(null, "", location.pathname); // 清掉参数，避免刷新重复导入
+    }catch(e){ /* 忽略损坏的参数 */ }
+  }
+  function fillBookmarklet(){
+    const el = document.getElementById("bmCode");
+    if(!el) return;
+    const target = location.origin + location.pathname;
+    el.value = "javascript:(function(){var t=document.title||'';var h=(document.querySelector('h1')||{}).innerText||'';var u=location.href;var d=encodeURIComponent(JSON.stringify({title:t,h1:h.trim(),url:u}));var w=window.open('"+target+"?import='+d,'_blank');if(!w)location.href='"+target+"?import='+d;})();";
+  }
+
   // ---------- 启动 ----------
+  fillBookmarklet();
   renderChips(); renderList();
+  handleImport();
 })();
 </script>
 </body>
