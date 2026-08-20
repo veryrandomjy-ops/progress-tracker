@@ -157,18 +157,18 @@
       <summary>📱 手机怎么一键抓取（iOS / 安卓）</summary>
       <p><b>① 最简单·所有手机通用：</b>在章节页<b>长按章节标题复制</b> → 回 App 粘到上方「粘贴页面文字」→「从文字识别」。无需任何设置。</p>
       <p><b>② 苹果 Safari（书签不可用，用「快捷指令」，一次性设置，之后点一下）：</b></p>
+      <p style="color:#c0392b;font-size:12px;margin:2px 0 6px">⚠️ 关键：快捷指令必须<b>从 Safari 的「分享」菜单里点</b>来运行（不是从快捷指令 App 里点）。从分享菜单运行时，它才拿得到当前网页；从 App 里点，网页是空的，自然填不进。</p>
       <ol style="margin:4px 0 8px;padding-left:18px;line-height:1.7;font-size:13px">
-        <li>先去 iPhone「<b>设置</b>」→「<b>快捷指令</b>」→ 打开「<b>允许运行脚本</b>」。<br><span style="color:#888">（不打开这开关，下面的 JavaScript 会静默失败、什么也抓不到）</span></li>
         <li>打开「<b>快捷指令</b>」App → 右上角 <b>＋</b> → 新建<span style="color:#888">（空白快捷指令）</span>。</li>
-        <li>点顶部「<b>快捷指令名称</b>」→ 打开「<b>在共享表单中显示</b>」→ “接受的类型”只勾选「<b>Safari 浏览器网页</b>」，其余取消。</li>
-        <li>返回编辑页，点「<b>添加操作</b>」→ 搜索「<b>JavaScript</b>」→ 选「<b>在网页上运行 JavaScript</b>」。<br><span style="color:#888">（添加后脚本框里可能有自带的示例代码，先长按全选删除干净）</span><br>再粘贴下面这两行：<br><code style="font-size:11px;display:block;white-space:pre-wrap;background:#f5f5f5;padding:4px;border-radius:4px;margin-top:2px">const title = document.title;
-completion(title);</code><br><span style="color:#888">（这段脚本在你的章节页里运行，直接读 document.title，所以一定拿得到标题。注意只能有这一个 completion，否则传出去的是别的东西）</span></li>
-        <li>再「添加操作」→ 搜索「<b>URL 编码</b>」→ 输入选上一步的「<b>JavaScript 结果</b>」。<br><span style="color:#888">（把中文/空格编码，避免传丢）</span></li>
-        <li>再「添加操作」→ 搜索「<b>URL</b>」→ 在框里先输入 <code style="font-size:11px;word-break:break-all">https://veryrandomjy-ops.github.io/progress-tracker/?t=</code>，再把光标放到末尾，点键盘上方的「<b>变量</b>」插入第 5 步的「<b>URL 编码</b>」结果。</li>
-        <li>再「添加操作」→ 搜索「<b>打开 URL</b>」→ 输入选第 6 步的「<b>URL</b>」。</li>
-        <li>点「<b>完成</b>」→ 给快捷指令改名（如「记进度」）。以后在章节页 → 点 <b>分享</b> → 选「<b>记进度</b>」→ 自动跳回 App 填好书名+章节。</li>
+        <li>点顶部「<b>快捷指令名称</b>」→ 打开「<b>在共享表单中显示</b>」→ “接受的类型”<b>只勾选「Safari 浏览器网页」</b>，其余全部取消。</li>
+        <li>返回编辑页，点「<b>添加操作</b>」→ 搜索「<b>详细信息</b>」（或「网页」）→ 选「<b>获取网页的详细信息</b>」→ 把属性选成「<b>名称</b>」。<br><span style="color:#888">（注意是「名称」，不是「标题」——iOS 没有“标题”这个属性；“名称”就是网页标题）</span></li>
+        <li>再「添加操作」→ 搜索「<b>URL</b>」→ 在框里先输入 <code style="font-size:11px;word-break:break-all">https://veryrandomjy-ops.github.io/progress-tracker/?t=</code>，再把光标放到末尾，点键盘上方的「<b>变量</b>」插入第 3 步的「<b>名称</b>」结果。</li>
+        <li><b>先自检</b>：再「添加操作」→ 搜索「<b>显示</b>」→ 选「<b>显示结果</b>」→ 输入选第 4 步的「<b>URL</b>」。<br>然后在 Safari 章节页点「分享」→ 选这个快捷指令 → 看弹出的链接：<b>?t= 后面必须有书名</b>（如 <code style="font-size:11px">?t=某某小说第123章</code>）。有就说明抓到了；是空的就是没抓到。</li>
+        <li>自检通过后，把「<b>显示结果</b>」删掉，换成「<b>打开 URL</b>」→ 输入选第 4 步的「<b>URL</b>」。</li>
+        <li>点「<b>完成</b>」→ 给快捷指令改名（如「记进度」）。以后章节页 → 点 <b>分享</b> → 选「<b>记进度</b>」→ 自动跳回 App 填好书名+章节。</li>
       </ol>
-      <p style="color:#888;font-size:12px">若不想开「允许运行脚本」，用更稳的剪贴板方案：新建快捷指令 → 加「<b>获取剪贴板</b>」→ 加「<b>URL</b>」拼 <code style="font-size:11px">?t=</code> + 剪贴板变量 → 加「<b>打开 URL</b>」。在 Safari 长按标题复制后运行即可，无需配置共享表单。</p>
+      <p style="color:#888;font-size:12px">备用方案（如「名称」抓到的是网址而非书名）：用「在网页上运行 JavaScript」→ 脚本只留 <code style="font-size:11px">const t=document.title;completion(t);</code>（需先在「设置→快捷指令」开「允许运行脚本」），后续步骤同上。</p>
+      <p style="color:#888;font-size:12px">更稳的纯手动方案：新建快捷指令 → 加「<b>获取剪贴板</b>」→ 加「<b>URL</b>」拼 <code style="font-size:11px">?t=</code> + 剪贴板变量 → 加「<b>打开 URL</b>」。在 Safari 长按标题复制后运行即可，无需配置共享表单。</p>
       <p><b>③ 安卓 Chrome：</b>电脑 Chrome 把下面书签网址改成代码并同步账号，手机即可用；或用 Firefox/Kiwi（可编辑书签网址）。</p>
       <textarea readonly id="bmCode" rows="3" style="width:100%;font-size:11px;word-break:break-all"></textarea>
       <p style="color:#888;font-size:12px">书签代码（安卓/电脑用）：在章节页点此书签自动导入。</p>
@@ -635,9 +635,10 @@ completion(title);</code><br><span style="color:#888">（这段脚本在你的�
   // ---------- 从书签导入（正常浏览器页面内抓取，绕过网站拦截）----------
   function handleImport(){
     try{
+      // URLSearchParams.get 已自动把 %XX / + 解码一次，不要再 decodeURIComponent，否则二次解码遇到残留 % 会抛异常被吞掉
       const q = new URLSearchParams(location.search).get("import");
       if(q){
-        const d = JSON.parse(decodeURIComponent(q));
+        const d = JSON.parse(q);
         openSheet();
         if(d.url) document.getElementById("fUrl").value = d.url;
         const txt = (d.h1 && d.h1.trim() ? d.h1.trim() + "\n" + (d.title||"") : (d.title||"")).trim();
@@ -649,7 +650,7 @@ completion(title);</code><br><span style="color:#888">（这段脚本在你的�
       const t = new URLSearchParams(location.search).get("t");
       if(t){
         openSheet();
-        document.getElementById("fPaste").value = decodeURIComponent(t).trim();
+        document.getElementById("fPaste").value = t.trim();
         recognizeText();
         history.replaceState(null, "", location.pathname);
       }
