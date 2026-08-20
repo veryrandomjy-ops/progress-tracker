@@ -154,10 +154,16 @@
       <button class="mini" id="pasteBtn" type="button" style="margin-top:6px">从文字识别</button>
     </div>
     <details class="help">
-      <summary>📌 一键抓取书签（推荐，可绕过网站拦截）</summary>
-      <p>在浏览器里新建一个书签，把它的“网址”整段替换成下面这段代码；之后在小说/剧集章节页点这个书签，会自动把书名+章节导入本应用（靠你自己的浏览器读取页面，不受网站拦截影响）。</p>
+      <summary>📱 手机怎么一键抓取（iOS / 安卓）</summary>
+      <p><b>① 最简单·所有手机通用：</b>在章节页<b>长按章节标题复制</b> → 回 App 粘到上方「粘贴页面文字」→「从文字识别」。无需任何设置。</p>
+      <p><b>② 苹果 Safari（书签不可用，用「快捷指令」）：</b>iOS 不能用 javascript 书签，解决办法是建一个快捷指令从分享菜单读标题——</p>
+      <p style="margin:4px 0;line-height:1.6">• 打开 iPhone「<b>快捷指令</b>」App → 新建空白快捷指令<br>
+      • 加「<b>获取 [快捷指令输入] 的详细信息</b>」，选「<b>标题</b>」<br>
+      • 加「<b>URL</b>」动作：填 <code style="font-size:11px;word-break:break-all">https://veryrandomjy-ops.github.io/progress-tracker/?t=</code> 然后点空白处插入上面的「标题」变量<br>
+      • 加「<b>打开 URL</b>」→ 命名保存。下次在章节页点 <b>分享 → 你的快捷指令</b>，自动导入。</p>
+      <p><b>③ 安卓 Chrome：</b>电脑 Chrome 把下面书签网址改成代码并同步账号，手机即可用；或用 Firefox/Kiwi（可编辑书签网址）。</p>
       <textarea readonly id="bmCode" rows="3" style="width:100%;font-size:11px;word-break:break-all"></textarea>
-      <p style="color:#888;font-size:12px">手机端：先收藏当前页生成书签，再编辑该书签，把网址改成上面整段代码（以 <code>javascript:</code> 开头）。</p>
+      <p style="color:#888;font-size:12px">书签代码（安卓/电脑用）：在章节页点此书签自动导入。</p>
     </details>
     <div class="field">
       <label>类型</label>
@@ -622,14 +628,23 @@
   function handleImport(){
     try{
       const q = new URLSearchParams(location.search).get("import");
-      if(!q) return;
-      const d = JSON.parse(decodeURIComponent(q));
-      openSheet();
-      if(d.url) document.getElementById("fUrl").value = d.url;
-      const txt = (d.h1 && d.h1.trim() ? d.h1.trim() + "\n" + (d.title||"") : (d.title||"")).trim();
-      document.getElementById("fPaste").value = txt;
-      recognizeText();
-      history.replaceState(null, "", location.pathname); // 清掉参数，避免刷新重复导入
+      if(q){
+        const d = JSON.parse(decodeURIComponent(q));
+        openSheet();
+        if(d.url) document.getElementById("fUrl").value = d.url;
+        const txt = (d.h1 && d.h1.trim() ? d.h1.trim() + "\n" + (d.title||"") : (d.title||"")).trim();
+        document.getElementById("fPaste").value = txt;
+        recognizeText();
+        history.replaceState(null, "", location.pathname);
+        return;
+      }
+      const t = new URLSearchParams(location.search).get("t");
+      if(t){
+        openSheet();
+        document.getElementById("fPaste").value = decodeURIComponent(t).trim();
+        recognizeText();
+        history.replaceState(null, "", location.pathname);
+      }
     }catch(e){ /* 忽略损坏的参数 */ }
   }
   function fillBookmarklet(){
