@@ -179,7 +179,8 @@
   const CATEGORIES = {
     novel: { label:"小说", icon:"📖", fields:[
       {key:"volume", label:"卷", optional:true, ph:"选填"},
-      {key:"chapter", label:"章", ph:"当前章数"}
+      {key:"chapter", label:"章", ph:"当前章数"},
+      {key:"chapterName", label:"章节名", optional:true, ph:"自动识别/手填", type:"text"}
     ]},
     show:  { label:"剧集", icon:"🎬", fields:[
       {key:"season", label:"季", ph:"第几季"},
@@ -223,7 +224,7 @@
   }
   function progressText(it){
     const cfg = CATEGORIES[it.cat] || CATEGORIES.other;
-    const parts = cfg.fields.map(f=>{
+    const parts = cfg.fields.filter(f=>f.type!=="text").map(f=>{
       const v = it[f.key];
       if(v===undefined||v===""||v===null) return null;
       return f.label + v;
@@ -265,6 +266,7 @@
           <span class="badge">${cfg.icon} ${cfg.label}</span>
         </div>
         <div class="progress">${esc(progressText(it))}</div>
+        ${it.chapterName?`<div class="note">📖 ${esc(it.chapterName)}</div>`:""}
         ${it.note?`<div class="note">${esc(it.note)}</div>`:""}
         <div class="meta">更新于 ${relTime(it.updatedAt)}</div>
         <div class="actions">
@@ -308,7 +310,7 @@
     const cfg=CATEGORIES[formCat];
     document.getElementById("progressFields").innerHTML = cfg.fields.map(f=>
       `<div class="field"><label>${f.label}${f.optional?"（选填）":""}</label>
-       <input type="number" min="0" inputmode="numeric" data-k="${f.key}" placeholder="${f.ph||""}"></div>`
+       <input type="${f.type==="text"?"text":"number"}" ${f.type==="text"?"":"min=\"0\" inputmode=\"numeric\""} data-k="${f.key}" placeholder="${f.ph||""}"></div>`
     ).join("");
   }
 
@@ -345,7 +347,7 @@
     cfg.fields.forEach(f=>{
       const el=document.querySelector(`#progressFields [data-k="${f.key}"]`);
       const v=el?el.value.trim():"";
-      if(v!=="") data[f.key]=parseInt(v,10);
+      if(v!=="") data[f.key] = (f.type==="text") ? v : parseInt(v,10);
     });
     const note=document.getElementById("fNote").value.trim();
     if(editingId){
@@ -391,23 +393,37 @@
 
   // ---------- 网址识别 ----------
   const PROXIES = [
-    u => "https://api.allorigins.win/raw?url=" + encodeURIComponent(u),
-    u => "https://api.allorigins.win/get?url=" + encodeURIComponent(u),
-    u => "https://api.codetabs.com/v1/proxy/?quest=" + encodeURIComponent(u),
-    u => "https://cors.bridged.cc/" + u,
-    u => "https://api.websiteproxy.io/index.php?url=" + encodeURIComponent(u)
+    {url:u=>"https://api.allorigins.win/raw?url="+encodeURIComponent(u), json:false},
+    {url:u=>"https://api.codetabs.com/v1/proxy/?quest="+encodeURIComponent(u), json:false},
+    {url:u=>"https://cors.bridged.cc/"+u, json:false},
+    {url:u=>"https://api.websiteproxy.io/index.php?url="+encodeURIComponent(u), json:false},
+    {url:u=>"https://api.allorigins.win/get?url="+encodeURIComponent(u), json:true}
   ];
   async function fetchViaProxy(url){
     let lastErr;
-    for(const make of PROXIES){
+    for(const p of PROXIES){
       try{
-        const r = await fetch(make(url), {signal:AbortSignal.timeout ? AbortSignal.timeout(13000) : undefined});
+        const ctrl = (typeof AbortController!=="undefined") ? new AbortController() : null;
+        const to = setTimeout(()=>{ if(ctrl) ctrl.abort(); }, 13000);
+        const r = await fetch(p.url(url), ctrl?{signal:ctrl.signal}:undefined);
+        clearTimeout(to);
         if(!r.ok) continue;
-        let txt = await r.text();
-        if(make.toString().indexOf("allorigins.win/get")>-1){
-          try{ txt = JSON.parse(txt).contents || txt; }catch(e){}
+        let decoded;
+        if(p.json){
+          const j = await r.json().catch(()=>null);
+          decoded = (j && j.contents) ? String(j.contents) : "";
+        }else{
+          const buf = new Uint8Array(await r.arrayBuffer());
+          // 先用 utf-8 扫一下 charset 声明（GBK 站常见）
+          const head = new TextDecoder("utf-8").decode(buf.subarray(0, 2048));
+          const cm = head.match(/charset=["']?\s*(gbk|gb2312|gb18030|big5|utf-8|utf8)\b/i);
+          let cs = cm ? cm[1].toLowerCase() : "utf-8";
+          if(cs==="utf8") cs="utf-8";
+          let dec;
+          try{ dec = new TextDecoder(cs); }catch(e){ dec = new TextDecoder("utf-8"); }
+          decoded = dec.decode(buf);
         }
-        if(txt && txt.length>200) return txt;
+        if(decoded && decoded.length>200) return decoded;
       }catch(e){ lastErr=e; }
     }
     throw lastErr || new Error("所有代理均失败");
@@ -420,47 +436,111 @@
     if(og) return og[1].trim();
     return "";
   }
+  // 盗版小说站常用信号：h1 正文标题、og:novel:book_name、keywords 等
+  function extractSignals(html){
+    const sig = {title:"", ogTitle:"", h1:"", metaBook:"", metaKeywords:""};
+    sig.title = extractTitle(html);
+    const og = html.match(/<meta[^>]+property=["']og:title["'][^>]+content=["']([^"']*)["']/i)
+            || html.match(/<meta[^>]+content=["']([^"']*)["'][^>]+property=["']og:title["']/i);
+    if(og) sig.ogTitle = og[1].trim();
+    const ob = html.match(/<meta[^>]+property=["']og:novel:book_name["'][^>]+content=["']([^"']*)["']/i)
+            || html.match(/<meta[^>]+content=["']([^"']*)["'][^>]+property=["']og:novel:book_name["']/i)
+            || html.match(/<meta[^>]+property=["']og:novel:bookname["'][^>]+content=["']([^"']*)["']/i);
+    if(ob) sig.metaBook = ob[1].trim();
+    const kw = html.match(/<meta[^>]+name=["']keywords["'][^>]+content=["']([^"']*)["']/i)
+            || html.match(/<meta[^>]+content=["']([^"']*)["'][^>]+name=["']keywords["']/i);
+    if(kw) sig.metaKeywords = kw[1].trim();
+    const h1m = html.match(/<h1[^>]*>([\s\S]*?)<\/h1>/i);
+    if(h1m) sig.h1 = h1m[1].replace(/<[^>]+>/g,"").replace(/\s+/g," ").trim();
+    return sig;
+  }
   const CN = {"零":0,"一":1,"二":2,"两":2,"三":3,"四":4,"五":5,"六":6,"七":7,"八":8,"九":9};
   function cnNum(s){
+    if(s==null) return NaN;
+    s = (""+s).trim();
     if(/^\d+$/.test(s)) return parseInt(s,10);
-    if(s==="十") return 10;
-    if(s && s.indexOf("十")>-1){
-      const p=s.split("十"); const tens=p[0]===""?1:(CN[p[0]]||0); const ones=p[1]===""?0:(CN[p[1]]||0);
+    if(s==="十") return 10; if(s==="百") return 100; if(s==="千") return 1000;
+    const map=CN;
+    if(/[百千万]/.test(s)){
+      let total=0, num=0;
+      for(const ch of s){
+        if(map[ch]!==undefined){ num=map[ch]; }
+        else if(ch==="十"){ total+=(num||1)*10; num=0; }
+        else if(ch==="百"){ total+=(num||1)*100; num=0; }
+        else if(ch==="千"){ total+=(num||1)*1000; num=0; }
+      }
+      total+=num; return total;
+    }
+    if(s.indexOf("十")>-1){
+      const p=s.split("十"); const tens=p[0]===""?1:(map[p[0]]||0); const ones=p[1]===""?0:(map[p[1]]||0);
       return tens*10+ones;
     }
-    return CN[s]!==undefined?CN[s]:NaN;
+    return map[s]!==undefined?map[s]:NaN;
   }
-  const SITE_SUFFIX = ["爱奇艺","腾讯视频","优酷","芒果tv","芒果TV","哔哩哔哩","bilibili","起点中文网","起点","番茄小说","番茄","晋江文学城","刺猬猫","腾讯","爱奇艺视频","优酷视频"];
-  const GENERIC = ["在线观看","高清","免费观看","全集","剧情","介绍","电视剧","动漫","电影","综艺","正片","视频","播放","观看","官网","全集在线"];
-  function cleanupName(text, progressSub){
+  const SITE_SUFFIX = ["爱奇艺","腾讯视频","优酷","芒果tv","芒果TV","哔哩哔哩","bilibili","起点中文网","起点","番茄小说","番茄","晋江文学城","刺猬猫","腾讯","爱奇艺视频","优酷视频","笔趣阁","新笔趣阁","小说网","小说吧","纵横中文网","飞卢","17K小说网","17k","潇湘书院","红袖添香","小说阅读网","八一中文网","看书网","顶点小说","千千小说"];
+  const GENERIC = ["在线观看","高清","免费观看","全集","剧情","介绍","电视剧","动漫","电影","综艺","正片","视频","播放","观看","官网","全集在线","在线阅读","免费阅读","全文阅读","最新章节","无弹窗","无广告","txt下载","下载","全文","阅读","看书","小说","章节","最新","目录","笔趣"];
+  function cleanupName(text){
     let name = text || "";
-    if(progressSub) name = name.replace(progressSub,"");
-    // 剥掉所有进度令牌
-    name = name.replace(/第\s*[0-9零一二两三四五六七八九十]+\s*[集季章节回话卷]/g,"");
-    name = name.replace(/S\s*[0-9]+\s*E\s*[0-9]+/gi,"");
-    name = name.replace(/\bEP\s*[0-9]+/gi,"");
-    // 去掉站点名与通用词（整段或子串）
-    let segs = name.split(/\s*[-–—|_\/]\s*/).map(s=>s.trim()).filter(Boolean);
-    segs = segs.filter(seg=> !SITE_SUFFIX.includes(seg.toLowerCase()) && !GENERIC.includes(seg));
-    name = (segs[0]||text||"");
-    for(const s of SITE_SUFFIX){ name = name.split(s).join(""); }
-    for(const g of GENERIC){ name = name.split(g).join(""); }
-    return name.replace(/\s+/g," ").trim();
+    name = name.replace(/第\s*[0-9零一二两三四五六七八九十百千]+\s*[集季章节回话卷]/g," ");
+    name = name.replace(/S\s*[0-9]+\s*E\s*([0-9]+)/gi," ");
+    name = name.replace(/\bEP\s*[0-9]+/gi," ");
+    let segs = name.split(/[\s\-–—|_\/]+/).map(s=>s.trim()).filter(Boolean);
+    segs = segs.filter(seg=> !SITE_SUFFIX.includes(seg) && !GENERIC.includes(seg));
+    return segs.join(" ").trim();
   }
-  function detectProgress(text){
-    let res = {cat:null, name:null, volume:null, chapter:null, season:null, episode:null};
-    let m, hit=null;
-    if((m=text.match(/第\s*([0-9零一二两三四五六七八九十]+)\s*季\s*第\s*([0-9零一二两三四五六七八九十]+)\s*集/))){ res.cat="show"; res.season=cnNum(m[1]); res.episode=cnNum(m[2]); hit=m[0]; }
-    else if((m=text.match(/S\s*([0-9]+)\s*E\s*([0-9]+)/i))){ res.cat="show"; res.season=parseInt(m[1],10); res.episode=parseInt(m[2],10); hit=m[0]; }
-    else if((m=text.match(/第\s*([0-9零一二两三四五六七八九十]+)\s*集/))){ res.cat="show"; res.episode=cnNum(m[1]); hit=m[0]; }
-    else if((m=text.match(/\bEP\s*([0-9]+)/i))){ res.cat="show"; res.episode=parseInt(m[1],10); hit=m[0]; }
-    else if((m=text.match(/第\s*([0-9零一二两三四五六七八九十]+)\s*季/))){ res.cat="show"; res.season=cnNum(m[1]); hit=m[0]; }
-    if(res.cat==="show"){ res.name=cleanupName(text,hit); return res; }
-    if((m=text.match(/第\s*([0-9零一二两三四五六七八九十]+)\s*卷/))){ res.cat="novel"; res.volume=cnNum(m[1]); }
-    if((m=text.match(/第\s*([0-9零一二两三四五六七八九十]+)\s*[章回话]/))){ if(!res.cat) res.cat="novel"; res.chapter=cnNum(m[1]); hit=m[0]; }
-    else if(res.cat==="novel"){ hit=null; }
-    if(res.cat==="novel"){ res.name=cleanupName(text,hit); return res; }
-    return null;
+  // 从一段文字提取 第X卷 / 第X章 及章节名（盗版站常在标题或 h1 里）
+  function parseNovel(text){
+    let volume=null, chapter=null, chapterName=null;
+    const vm = text.match(/第\s*([0-9零一二两三四五六七八九十百千]+)\s*卷/);
+    if(vm) volume = cnNum(vm[1]);
+    const cm = text.match(/第\s*([0-9零一二两三四五六七八九十百千]+)\s*[章回节]/);
+    if(cm){
+      chapter = cnNum(cm[1]);
+      let rest = text.slice(cm.index + cm[0].length).trim();
+      let after = rest.split(/[\s\-_–—|]/)[0].trim();
+      if(!after){
+        const before = text.slice(0, cm.index).trim().split(/[\s\-_–—|]/).pop().trim();
+        after = before;
+      }
+      chapterName = after || null;
+    }
+    return {volume, chapter, chapterName};
+  }
+  function pickNovelName(sig, nov){
+    if(sig.metaBook) return sig.metaBook.trim();
+    let t = sig.title || sig.ogTitle || "";
+    if(nov.chapter!=null) t = t.replace(/第\s*[0-9零一二两三四五六七八九十百千]+\s*[章回节卷]/g," ");
+    if(nov.chapterName) t = t.split(nov.chapterName).join(" ");
+    let name = cleanupName(t);
+    if(!name && sig.metaKeywords){
+      const k = sig.metaKeywords.split(/[,\s，]+/).filter(x=>x && !SITE_SUFFIX.includes(x) && !GENERIC.includes(x));
+      if(k.length) name = k[0];
+    }
+    return name || null;
+  }
+  function analyze(sig){
+    const primary = sig.h1 || sig.ogTitle || sig.title;
+    let res = {cat:null, name:null, volume:null, chapter:null, season:null, episode:null, chapterName:null};
+    let m;
+    if((m=primary.match(/第\s*([0-9零一二两三四五六七八九十]+)\s*季\s*第\s*([0-9零一二两三四五六七八九十]+)\s*集/))){ res.cat="show"; res.season=cnNum(m[1]); res.episode=cnNum(m[2]); }
+    else if((m=primary.match(/S\s*([0-9]+)\s*E\s*([0-9]+)/i))){ res.cat="show"; res.season=+m[1]; res.episode=+m[2]; }
+    else if((m=primary.match(/第\s*([0-9零一二两三四五六七八九十]+)\s*集/))){ res.cat="show"; res.episode=cnNum(m[1]); }
+    else if((m=primary.match(/\bEP\s*([0-9]+)/i))){ res.cat="show"; res.episode=+m[1]; }
+    else if((m=primary.match(/第\s*([0-9零一二两三四五六七八九十]+)\s*季/))){ res.cat="show"; res.season=cnNum(m[1]); }
+    if(res.cat==="show"){
+      res.name = cleanupName(sig.title) || sig.title;
+      return res;
+    }
+    const nov = parseNovel(primary);
+    if(nov.chapter!=null || nov.volume!=null){
+      res.cat="novel"; res.chapter=nov.chapter; res.volume=nov.volume; res.chapterName=nov.chapterName;
+    }
+    if(res.cat==="novel"){
+      res.name = pickNovelName(sig, nov);
+      return res;
+    }
+    if(sig.title){ res.name = cleanupName(sig.title) || sig.title; }
+    return res.name ? res : null;
   }
   async function recognize(){
     const url = document.getElementById("fUrl").value.trim();
@@ -469,21 +549,27 @@
     status.textContent = "识别中…";
     try{
       const html = await fetchViaProxy(url);
-      const title = extractTitle(html);
-      if(!title){ status.textContent = "未能从页面提取标题，请手动填写"; return; }
-      const r = detectProgress(title);
-      if(!r){
-        document.getElementById("fTitle").value = title;
-        status.textContent = "已提取标题：" + title + "（未识别到进度，请手动选类型并填写）";
+      const sig = extractSignals(html);
+      if(!sig.title && !sig.h1 && !sig.ogTitle){ status.textContent = "未能从页面提取信息，请手动填写"; return; }
+      const r = analyze(sig);
+      if(!r || !r.cat){
+        const guess = sig.title || sig.ogTitle || sig.h1 || "";
+        document.getElementById("fTitle").value = cleanupName(guess) || guess;
+        status.textContent = "已提取标题，但未识别到进度，请手动选类型并填写";
         return;
       }
       formCat = r.cat; renderTypeSeg(); renderProgressFields();
-      document.getElementById("fTitle").value = r.name || title;
+      document.getElementById("fTitle").value = r.name || (sig.title||sig.ogTitle);
       const cfg = CATEGORIES[formCat];
-      cfg.fields.forEach(f=>{ const el=document.querySelector('#progressFields [data-k="'+f.key+'"]'); if(el && r[f.key]!=null && !isNaN(r[f.key])) el.value=r[f.key]; });
-      status.textContent = "已识别：" + (r.name||title) + " · " + progressText({cat:formCat, volume:r.volume, chapter:r.chapter, season:r.season, episode:r.episode});
+      cfg.fields.forEach(f=>{
+        const el=document.querySelector('#progressFields [data-k="'+f.key+'"]');
+        if(el && r[f.key]!=null && (f.type==="text" ? true : !isNaN(r[f.key]))) el.value=r[f.key];
+      });
+      let msg = "已识别：" + (r.name||"") + " · " + progressText({cat:formCat, volume:r.volume, chapter:r.chapter, season:r.season, episode:r.episode});
+      if(r.chapterName) msg += " · 章节：" + r.chapterName;
+      status.textContent = msg;
     }catch(e){
-      status.textContent = "识别失败（代理可能不稳定），可重试或手动填写";
+      status.textContent = "识别失败（代理或网站拦截），可重试或手动填写";
     }
   }
 
