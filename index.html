@@ -156,11 +156,16 @@
     <details class="help">
       <summary>📱 手机怎么一键抓取（iOS / 安卓）</summary>
       <p><b>① 最简单·所有手机通用：</b>在章节页<b>长按章节标题复制</b> → 回 App 粘到上方「粘贴页面文字」→「从文字识别」。无需任何设置。</p>
-      <p><b>② 苹果 Safari（书签不可用，用「快捷指令」）：</b>iOS 不能用 javascript 书签，解决办法是建一个快捷指令从分享菜单读标题——</p>
-      <p style="margin:4px 0;line-height:1.6">• 打开 iPhone「<b>快捷指令</b>」App → 新建空白快捷指令<br>
-      • 加「<b>获取 [快捷指令输入] 的详细信息</b>」，选「<b>标题</b>」<br>
-      • 加「<b>URL</b>」动作：填 <code style="font-size:11px;word-break:break-all">https://veryrandomjy-ops.github.io/progress-tracker/?t=</code> 然后点空白处插入上面的「标题」变量<br>
-      • 加「<b>打开 URL</b>」→ 命名保存。下次在章节页点 <b>分享 → 你的快捷指令</b>，自动导入。</p>
+      <p><b>② 苹果 Safari（书签不可用，用「快捷指令」，一次性设置，之后点一下）：</b></p>
+      <ol style="margin:4px 0 8px;padding-left:18px;line-height:1.7;font-size:13px">
+        <li>打开 iPhone「<b>快捷指令</b>」App → 右上角 <b>＋</b> → 新建<span style="color:#888">（空白快捷指令）</span>。</li>
+        <li>点「<b>添加操作</b>」→ 搜索「<b>获取详细信息</b>」→ 选「<b>获取 [快捷指令输入] 的详细信息</b>」→ 把属性选成「<b>标题</b>」。<br><span style="color:#888">（它读的就是当前 Safari 页面的标题）</span></li>
+        <li>再「添加操作」→ 搜索「<b>URL 编码</b>」→ 输入选上一步的「<b>标题</b>」。<br><span style="color:#888">（这步很重要：把中文/空格编码，否则可能传丢）</span></li>
+        <li>再「添加操作」→ 搜索「<b>URL</b>」→ 在框里先输入 <code style="font-size:11px;word-break:break-all">https://veryrandomjy-ops.github.io/progress-tracker/?t=</code>，再把光标放到末尾，点键盘上方的「<b>变量</b>」插入第 3 步的「<b>URL 编码</b>」结果。</li>
+        <li>再「添加操作」→ 搜索「<b>打开 URL</b>」→ 输入选第 4 步的「<b>URL</b>」。</li>
+        <li>点顶部「<b>⚙︎ / 名称</b>」→ 改个名（如「记进度」）→ 打开「<b>在共享表单中显示</b>」→ 接受的类型选「<b>网页</b>」。<br><span style="color:#888">（不开这个，Safari 分享里就找不到它——最常漏的一步）</span></li>
+        <li>以后在章节页 → 点 <b>分享</b> → 选「<b>记进度</b>」→ 自动跳回 App 填好书名+章节。</li>
+      </ol>
       <p><b>③ 安卓 Chrome：</b>电脑 Chrome 把下面书签网址改成代码并同步账号，手机即可用；或用 Firefox/Kiwi（可编辑书签网址）。</p>
       <textarea readonly id="bmCode" rows="3" style="width:100%;font-size:11px;word-break:break-all"></textarea>
       <p style="color:#888;font-size:12px">书签代码（安卓/电脑用）：在章节页点此书签自动导入。</p>
