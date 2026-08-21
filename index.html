@@ -158,6 +158,7 @@
       <p><b>① 最简单·所有手机通用：</b>在章节页<b>长按章节标题复制</b> → 回 App 粘到上方「粘贴页面文字」→「从文字识别」。无需任何设置。</p>
       <p><b>② 苹果 Safari（书签不可用，用「快捷指令」，一次性设置，之后点一下）：</b></p>
       <p style="color:#c0392b;font-size:12px;margin:2px 0 6px">⚠️ 关键：快捷指令必须<b>从 Safari 的「分享」菜单里点</b>来运行（不是从快捷指令 App 里点）。从分享菜单运行时，它才拿得到当前网页；从 App 里点，网页是空的，自然填不进。</p>
+      <p style="color:#c0392b;font-size:12px;margin:2px 0 6px">⚠️ 在<b>百度 / 微信等 App 的「内置浏览器」</b>里看小说时，分享给快捷指令的是<b>网址</b>而非「网页」，所以「名称」只会是那条网址、抓不到书名。两种解法：① 在百度里点「分享 / ⋯」→「<b>在 Safari 中打开</b>」（或复制链接粘到 Safari 地址栏），再用上面的「记进度」；② 懒得切 Safari，直接用下方「① 复制标题」法——在百度里长按章节标题复制即可，任何 App 内浏览器都通用。若用「记进度」从百度分享，App 会自动把网址当抓取源尝试提取书名，失败再提示你粘贴文字。</p>
       <ol style="margin:4px 0 8px;padding-left:18px;line-height:1.7;font-size:13px">
         <li>打开「<b>快捷指令</b>」App → 右上角 <b>＋</b> → 新建<span style="color:#888">（空白快捷指令）</span>。</li>
         <li>点顶部「<b>快捷指令名称</b>」→ 打开「<b>在共享表单中显示</b>」→ “接受的类型”<b>只勾选「Safari 浏览器网页」</b>，其余全部取消。</li>
@@ -650,8 +651,15 @@
       const t = new URLSearchParams(location.search).get("t");
       if(t){
         openSheet();
-        document.getElementById("fPaste").value = t.trim();
-        recognizeText();
+        const tv = t.trim();
+        if(/^https?:\/\//i.test(tv)){
+          // 从百度/微信等 App 内置浏览器分享时，?t= 实际是网址（"名称"属性即网址），改用按网址抓取提取书名
+          document.getElementById("fUrl").value = tv;
+          recognize();
+        }else{
+          document.getElementById("fPaste").value = tv;
+          recognizeText();
+        }
         history.replaceState(null, "", location.pathname);
       }
     }catch(e){ /* 忽略损坏的参数 */ }
