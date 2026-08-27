@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         进度记录器 · 一键记小说/剧集
 // @namespace    https://veryrandomjy-ops.github.io/progress-tracker
-// @version      1.2
+// @version      1.3
 // @description  在小说/剧集/动漫页面右下角常驻「记进度」按钮，点一下把作品名+看到的位置发到进度记录器网页自动填好。
 // @author       veryrandomjy-ops
 // @match        *://*/*
@@ -60,6 +60,28 @@
     location.href = dest;
   }
 
+  // 从面包屑 / 书名链接 / meta 抓干净书名（起点、晋江、番茄等通用）
+  function pickBookName() {
+    var cand = [];
+    var a = document.querySelector('a[href*="/book/"]');
+    if (a && a.textContent) cand.push(a.textContent.trim());
+    var bookSel = [".book-name", ".book-info .name", ".book-title", "[class*=\"bookName\"]",
+                   ".header-book-name", ".breadcrumb a", ".crumbs a", ".book-info a"];
+    for (var i = 0; i < bookSel.length; i++) {
+      var e = document.querySelector(bookSel[i]);
+      if (e && e.textContent) cand.push(e.textContent.trim());
+    }
+    var m = document.querySelector('meta[property="og:novel:book_name"]');
+    if (m && m.content) cand.push(m.content.trim());
+    m = document.querySelector('meta[property="og:title"]');
+    if (m && m.content) cand.push(m.content.trim());
+    for (var j = 0; j < cand.length; j++) {
+      var c = cand[j].replace(/[《》〈〉()（）]/g, "").trim();
+      if (c && !/首页|小说|分类|正文|目录|书库|读书|阅读/.test(c) && c.length < 40) return c;
+    }
+    return "";
+  }
+
   btn.onclick = function () {
     var title = (document.title || "").trim();
 
@@ -67,11 +89,12 @@
     var h1El = document.querySelector("h1");
     var h1 = h1El ? (h1El.innerText || h1El.textContent || "").trim() : "";
 
-    // 常见章节标题选择器，再补一层章节名
+    // 常见章节标题选择器，再补一层章节名（含起点阅读器样式）
     var chapter = "";
     var sel = [
       ".chapter-title", ".chapterTitle", ".j-chapterName", ".read-title",
-      ".title", "#chapter-title", "[class*='chapter']", "[class*='Chapter']"
+      ".title", "#chapter-title", "[class*='chapter']", "[class*='Chapter']",
+      ".reader-chapter-title", "#j_chapterName", "h2.title", ".main-title", ".reader-title"
     ];
     for (var i = 0; i < sel.length; i++) {
       var el = document.querySelector(sel[i]);
@@ -81,11 +104,14 @@
       }
     }
 
+    var book = pickBookName();
+
     var data = {
       title: title,
       h1: h1,
       url: location.href,
-      chapter: chapter
+      chapter: chapter,
+      book: book
     };
 
     var enc = encodeURIComponent(JSON.stringify(data));
