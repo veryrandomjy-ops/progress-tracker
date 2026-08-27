@@ -634,20 +634,28 @@
   document.getElementById("importBtn").onclick=()=>document.getElementById("importFile").click();
   document.getElementById("importFile").onchange=(e)=>{ if(e.target.files[0]) importData(e.target.files[0]); e.target.value=""; };
 
-  // ---------- 从书签导入（正常浏览器页面内抓取，绕过网站拦截）----------
+  // ---------- 从书签/油猴导入（正常浏览器页面内抓取，绕过网站拦截）----------
   function handleImport(){
     try{
-      // URLSearchParams.get 已自动把 %XX / + 解码一次，不要再 decodeURIComponent，否则二次解码遇到残留 % 会抛异常被吞掉
-      const q = new URLSearchParams(location.search).get("import");
-      if(q){
-        const d = JSON.parse(q);
+      // 支持两种传参：
+      //   ?import=  （书签用，查询串）
+      //   #import=  （油猴用，URL 哈希，纯客户端、不会被跳转/代理/GitHub Pages 丢弃）
+      let raw = new URLSearchParams(location.search).get("import");
+      if(!raw && location.hash.startsWith("#import=")){
+        raw = decodeURIComponent(location.hash.slice("#import=".length));
+      }
+      if(raw){
+        const d = JSON.parse(raw);
         openSheet();
         if(d.url) document.getElementById("fUrl").value = d.url;
-        var parts = [];
+        // 直接兜底：书名优先用页面标题，其次 h1，保证至少抓到作品名
+        const nameGuess = (d.title||"").trim() || (d.h1||"").trim();
+        const parts = [];
         if(d.h1 && d.h1.trim()) parts.push(d.h1.trim());
         if(d.title && d.title.trim()) parts.push(d.title.trim());
         if(d.chapter && d.chapter.trim() && parts.indexOf(d.chapter.trim()) === -1) parts.push(d.chapter.trim());
         document.getElementById("fPaste").value = parts.join("\n").trim();
+        if(nameGuess) document.getElementById("fTitle").value = nameGuess;
         recognizeText();
         history.replaceState(null, "", location.pathname);
         return;
@@ -666,7 +674,10 @@
         }
         history.replaceState(null, "", location.pathname);
       }
-    }catch(e){ /* 忽略损坏的参数 */ }
+    }catch(e){
+      // 解析失败给出可见提示，便于排查（而不是静默无反应）
+      toast("导入参数解析失败：" + (e && e.message ? e.message : e));
+    }
   }
   function fillBookmarklet(){
     const el = document.getElementById("bmCode");
