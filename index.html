@@ -643,8 +643,11 @@
         const d = JSON.parse(q);
         openSheet();
         if(d.url) document.getElementById("fUrl").value = d.url;
-        const txt = (d.h1 && d.h1.trim() ? d.h1.trim() + "\n" + (d.title||"") : (d.title||"")).trim();
-        document.getElementById("fPaste").value = txt;
+        var parts = [];
+        if(d.h1 && d.h1.trim()) parts.push(d.h1.trim());
+        if(d.title && d.title.trim()) parts.push(d.title.trim());
+        if(d.chapter && d.chapter.trim() && parts.indexOf(d.chapter.trim()) === -1) parts.push(d.chapter.trim());
+        document.getElementById("fPaste").value = parts.join("\n").trim();
         recognizeText();
         history.replaceState(null, "", location.pathname);
         return;
