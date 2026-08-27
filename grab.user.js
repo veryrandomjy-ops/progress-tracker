@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         进度记录器 · 一键记小说/剧集
 // @namespace    https://veryrandomjy-ops.github.io/progress-tracker
-// @version      1.0
+// @version      1.1
 // @description  在小说/剧集/动漫页面右下角常驻「记进度」按钮，点一下把作品名+看到的位置发到进度记录器网页自动填好。
 // @author       veryrandomjy-ops
 // @match        *://*/*
@@ -9,7 +9,7 @@
 // @homepageURL  https://veryrandomjy-ops.github.io/progress-tracker/
 // @updateURL    https://veryrandomjy-ops.github.io/progress-tracker/grab.user.js
 // @downloadURL  https://veryrandomjy-ops.github.io/progress-tracker/grab.user.js
-// @grant        none
+// @grant        GM_openInTab
 // @run-at       document-idle
 // ==/UserScript==
 
@@ -50,6 +50,16 @@
     btn.style.display = "none";
   };
 
+  // 可靠地把进度记录器页打开：
+  // 1) 油猴原生 GM_openInTab —— 专为脚本开新标签设计，可靠且保留原页面
+  // 2) 兜底：直接在当前标签页打开，保证一定生效（弹窗被拦时不会“点了没反应”）
+  function gotoTracker(dest) {
+    if (typeof GM_openInTab === "function") {
+      try { GM_openInTab(dest, { active: true }); return; } catch (e) {}
+    }
+    location.href = dest;
+  }
+
   btn.onclick = function () {
     var title = (document.title || "").trim();
 
@@ -81,9 +91,12 @@
     var enc = encodeURIComponent(JSON.stringify(data));
     var dest = TARGET + "?import=" + enc;
 
-    // 优先新开标签页；被拦截则跳转当前页
-    var w = window.open(dest, "_blank");
-    if (!w) { location.href = dest; }
+    // 即时反馈，确认点击已生效
+    var old = btn.textContent;
+    btn.textContent = "✓ 已发送";
+    setTimeout(function () { btn.textContent = old; }, 1500);
+
+    gotoTracker(dest);
   };
 
   var mount = document.body || document.documentElement;
