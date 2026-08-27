@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         进度记录器 · 一键记小说/剧集
 // @namespace    https://veryrandomjy-ops.github.io/progress-tracker
-// @version      1.1
+// @version      1.2
 // @description  在小说/剧集/动漫页面右下角常驻「记进度」按钮，点一下把作品名+看到的位置发到进度记录器网页自动填好。
 // @author       veryrandomjy-ops
 // @match        *://*/*
@@ -89,7 +89,8 @@
     };
 
     var enc = encodeURIComponent(JSON.stringify(data));
-    var dest = TARGET + "?import=" + enc;
+    // 用 URL 哈希（#import=）传参：纯客户端，不会被跳转/代理/GitHub Pages 丢弃查询串导致丢失
+    var dest = TARGET + "#import=" + enc;
 
     // 即时反馈，确认点击已生效
     var old = btn.textContent;
